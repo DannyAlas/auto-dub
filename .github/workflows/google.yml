@@ -25,7 +25,7 @@ jobs:
       with:
         token_format: 'access_token'
         workload_identity_provider: 'projects/815516096207/locations/global/workloadIdentityPools/my-pool1/providers/my-provider'	
-        service_account: reg-test@dev-app-c4b8a.iam.gserviceaccount.com
+        service_account: 'my-service-account@dev-app-c4b8a.iam.gserviceaccount.com'
 
     - name: test auth
       run: |-
