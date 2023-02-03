@@ -25,7 +25,7 @@ jobs:
       with:
         token_format: 'access_token'
         workload_identity_provider: ${{ secrets.PROVIDER_ID }}
-        service_account: ${{ secrets.SERVICE_ACCOUNT }}@${{ secrets.PROJECT_ID }}.iam.gserviceaccount.com
+        service_account: reg-test@dev-app-c4b8a.iam.gserviceaccount.com
 
     - name: test auth
       run: |-
