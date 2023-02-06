@@ -2,6 +2,7 @@ certifi==2022.12.7
 charset-normalizer==3.0.1
 ffmpeg-python==0.2.0
 filelock==3.9.0
+firebase-admin==6.1.0
 future==0.18.3
 huggingface-hub==0.12.0
 idna==3.4
