@@ -1,2 +1,8 @@
 .env
+*.cfg
+
+testing/
 __pycache__/
+Scripts/
+Lib/
+Include/
