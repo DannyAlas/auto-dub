@@ -111,6 +111,12 @@ def replace_manual_translations(text, langcode) -> Any:
             text = re.sub(findWordRegex, translatedText, text, flags=re.IGNORECASE)
     return text
 
+
+with open(r'api\SSML_Customization\example.srt', 'r') as f:
+    text = f.readlines()
+
+print(utils.srt_to_dict(text, 0))
+
 #================================================================================================
 #                           Functions for translating text
 #================================================================================================

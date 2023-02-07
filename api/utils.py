@@ -1,4 +1,5 @@
 import csv
+from msilib import type_string
 import re
 
 def srt_to_dict(lines, addBufferMilliseconds) -> dict:
