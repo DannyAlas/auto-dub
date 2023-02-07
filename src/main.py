@@ -33,7 +33,6 @@ def srt_format_timestamp(seconds: float) -> str:
 
     return (f"{hours}:") + f"{minutes:02d}:{seconds:02d},{milliseconds:03d}"
 
-
 def write_srt(transcript: Iterator[dict]) -> List:
     count = 0
     srt = []
