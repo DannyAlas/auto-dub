@@ -1,8 +1,7 @@
 from wsgiref.validate import validator
-from pydantic import BaseModel, ValidationError, validator
+from pydantic import BaseModel, validator
 import pandas as pd
-from typing import List
-import os
+
 
 ENCODINGS = [
     {
@@ -377,6 +376,66 @@ class Settings(BaseModel):
         return v
 
 
+class Srt_Timestamp():
+    """A class to represent a single SRT timestamp line.
+    
+    Attributes:
+        srt_timestamps_line (str): The line of text from the SRT file that contains the start and end timestamps.
+        start (str): The start timestamp in milliseconds.
+        end (str): The end timestamp in milliseconds.
+        duration (int): The duration of the timestamp in milliseconds.
+        
+    Methods:
+        get_start(): Returns the start timestamp in milliseconds.
+        get_end(): Returns the end timestamp in milliseconds.
+        get_duration(): Returns the duration of the timestamp in milliseconds.
+    """
+    def __init__(self, srt_timestamps_line):
+        self.srt_timestamps_line = srt_timestamps_line
+        self.srt_timestamps_line_valid()
+        
+        self.start = self.get_start()
+        self.end = self.get_end()
+        self.duration = self.get_duration()
+    
+    def srt_timestamps_line_valid(self) -> bool:
+        """Validates the SRT timestamp line."""
+        from re import match
+        if match(r"(\d+:\d+:\d+,\d+)[^\S\n]+-->[^\S\n]+(\d+:\d+:\d+,\d+)", self.srt_timestamps_line) is not None:
+            return True
+        else:
+            raise ValueError(f"Invalid SRT timestamp line: {self.srt_timestamps_line}")
+
+    def get_start(self) -> str:
+        start_ms = self.srt_timestamps_line.split(' --> ')[0]
+        return start_ms
+    
+    def get_end(self) -> str:
+        end_ms = self.srt_timestamps_line.split(' --> ')[1]
+        return end_ms
+    
+    def get_duration(self) -> int:
+        # convert start and end to int in milliseconds
+        start_ms = int(self.start.split(':')[0]) * 3600000 + int(self.start.split(':')[1]) * 60000 + int(self.start.split(':')[2].split(',')[0]) * 1000 + int(self.start.split(':')[2].split(',')[1])
+        end_ms = int(self.end.split(':')[0]) * 3600000 + int(self.end.split(':')[1]) * 60000 + int(self.end.split(':')[2].split(',')[0]) * 1000 + int(self.end.split(':')[2].split(',')[1])
+
+        duration_ms = end_ms - start_ms
+        return duration_ms
+    
+    def __repr__(self) -> str:
+        return f"{self.start} --> {self.end}"
+    
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Srt_Timestamp):
+            return self.start == other.start and self.end == other.end and self.duration == other.duration
+        return False
+    
+    def __ne__(self, other) -> bool:
+        if isinstance(other, Srt_Timestamp):
+            return self.start != other.start or self.end != other.end or self.duration != other.duration
+        return True
+
+
 class Subtitle(BaseModel):
     """
     A single subtitle instance to process
@@ -391,12 +450,16 @@ class Subtitle(BaseModel):
         The name of the TTS voice to use. Supported voices = MICROSOFT_LANGUAGES_VOICES
     synth_voice_gender: str
         The gender of the voice. Note supported genders depend of the voice, see supported voices
+    translation_formality: str
+        The formality of the translation. Supported formality = ["default", "more", "less"]
+    
     """
 
-    translation_target_language: str = "es-MX"
+    translation_target_language: str = "KO"
     synth_language_code: str = "es-MX"
     synth_voice_name: str = "es-MX-CecilioNeural"
     synth_voice_gender: str = "MALE"
+    translation_formality: str = "default"
 
     @property
     def translation_target_language_codes(self) -> list:
@@ -444,3 +507,4 @@ class Subtitle(BaseModel):
     def synth_language_code_and_synth_voice_gender_must_match(cls, v, values):
         # TODO: figure this out later
         return v
+

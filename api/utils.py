@@ -1,7 +1,7 @@
 import csv
 from msilib import type_string
 import re
-
+import os
 def srt_to_dict(lines, addBufferMilliseconds) -> dict:
     """
     Takes a list of lines from an srt file and returns a dictionary
@@ -190,7 +190,7 @@ def txt_to_list(txtFilePath):
     txtFilePath : str
         The path to the txt file
     """
-    with open(txtFilePath, "r", encoding='utf-8-sig') as data:
+    with open(txtFilePath, "r") as data:
         entriesList = []
         for line in data:
             if line.strip() != '' and line.strip()[0] != '#':

@@ -1,256 +1,132 @@
-import os
-import utils
-import re
-import html
-from typing import List, Dict, Any, Union
-
 from deepl_api import DEEPL_API
+from translate_utils import (
+    process_response_text, 
+    add_notranslate_tags_from_notranslate_file,
+    add_notranslate_tags_for_manual_translations,
+    combine_single_pass,
+    )
+import os
+from utils import txt_to_list, csv_to_dict
 
-
-# Import files from SSML_Customization folder
-noTranslateOverrideFile = os.path.join('SSML_Customization', 'dont_translate_phrases.txt')
-manualTranslationOverrideFile = os.path.join('SSML_Customization', 'Manual_Translations.csv')
-urlListFile = os.path.join('SSML_Customization', 'url_list.txt')
-# put them into dictionaries
-dontTranslateList = utils.txt_to_list(noTranslateOverrideFile)
-manualTranslationsDict = utils.csv_to_dict(manualTranslationOverrideFile)
-urlList = utils.txt_to_list(urlListFile)
-
-#================================================================================================
-#                           Helper Functions for translating text
-#================================================================================================
-
-def add_notranslate_tags_from_notranslate_file(text, phraseList) -> Any | str:
-    """
-    This function adds <span class="notranslate"> around words in the phraseList
+def combine_subtitles_advanced(inputDict, maxCharacters=200):
+    """ Combines subtitle lines that are close together and have a similar speaking rate. Useful when sentences are split into multiple subtitle lines. Voice synthesis will have fewer unnatural pauses.
     
-    Parameters
-    ----------
-
-    phraseLis: str
-        A list of words to not translate. For example, if the phraseList is ['example', 'list'], and the text is 'This is an example list', the text will be translated as 'This is an <span class="notranslate">example</span> <span class="notranslate">list</span>'
-    
-    Returns
-    -------
-    str
-        The text with <span class="notranslate"> around words in the phraseList
-
+    TODO: REWRITE THIS FUNCTION AT SOME POINT, split into multiple functions with more options
     """
-    for word in phraseList:
-        findWordRegex = rf'(\b["\'()]?{word}[.,!?()]?["\']?\b)' # Find the word, with optional punctuation after, and optional quotes before or after
-        text = re.sub(findWordRegex, r'<span class="notranslate">\1</span>', text, flags=re.IGNORECASE)
-    return text
+    charRateGoal = 20 #20
+    gapThreshold = 100 # The maximum gap between subtitles to combine
+    noMorePossibleCombines = False
+    # Convert dictionary to list of dictionaries of the values
+    entryList = []
 
-def remove_notranslate_tags(text) -> Any | str:
-    """
-    This function removes <span class="notranslate"> tags from text
+    for key, value in inputDict.items():
+        value['originalIndex'] = int(key)-1
+        entryList.append(value)
+
+    while not noMorePossibleCombines:
+        entryList, noMorePossibleCombines = combine_single_pass(entryList, charRateGoal, gapThreshold, maxCharacters)
+
+    # Convert the list back to a dictionary then return it
+    return dict(enumerate(entryList, start=1))
+
+def translate(subs_dict: dict, target_language: str, formality: str = "default", combine_subtitles: bool = True, combine_max_characters: int = 200):
+    """Translates a subtitle dictionary into the target language.
 
     Parameters
     ----------
-    text: str
-        The text to remove <span class="notranslate"> tags from
-    
-    Returns
-    -------
-    str
-        The text with <span class="notranslate"> tags removed
+    subs_dict: dict
+        A dictionary containing subtitle information.
+    target_language: str
+        The target language to translate to.
+    formality: str default="default"
+        The formality of the translation. Can be "default", "more" or "less".
+    combine_subtitles: bool default=True
+        Whether to combine subtitles that are close together and have a similar speaking rate. Useful when sentences are split into multiple subtitle lines. Voice synthesis will have fewer unnatural pauses.
+    combine_max_characters: int default=200
+        The maximum number of characters to combine subtitles into if combine_subtitles is true. .
 
     """
+    noTranslateOverrideFile = os.path.abspath('api/SSML_Customization/dont_translate_phrases.txt')
+    manualTranslationOverrideFile = os.path.abspath('api/SSML_Customization/Manual_Translations.csv')
+    urlListFile = os.path.abspath('api/SSML_Customization/url_list.txt')
 
-    text = text.replace('<span class="notranslate">', '').replace('</span>', '')
-    return text
-
-def add_notranslate_tags_for_manual_translations(text, langcode) -> Any | str:
-    """
-    This function adds <span class="notranslate"> around words in the manualTranslationsDict
-    
-    Parameters
-    ----------
-    text: str
-        The text to add <span class="notranslate"> tags to
-    langcode: str
-        The language code of the text. For example, if the text is in English, the langcode is 'en'
-    
-    Returns
-    -------
-    str
-        The text with <span class="notranslate"> around words in the manualTranslationsDict
-
-    """
-    for manualTranslatedText in manualTranslationsDict:
-        # Only replace text if the language matches the entry in the manual translations file
-        if manualTranslatedText['Language Code'] == langcode: 
-            originalText = manualTranslatedText['Original Text']
-            findWordRegex = rf'(\b["\'()]?{originalText}[.,!?()]?["\']?\b)'
-            text = re.sub(findWordRegex, r'<span class="notranslate">\1</span>', text, flags=re.IGNORECASE)
-    return text
-
-def replace_manual_translations(text, langcode) -> Any:
-    """
-    This function replaces words in the manualTranslationsDict with their translations
-
-    Parameters
-    ----------
-    text: str
-        The text to replace words in
-    langcode: str
-        The language code of the text. For example, if the text is in English, the langcode is 'en'
-    
-    Returns
-    -------
-    str
-        The text with words in the manualTranslationsDict replaced with their translations
-    
-    """
-    for manualTranslatedText in manualTranslationsDict:
-        # Only replace text if the language matches the entry in the manual translations file
-        if manualTranslatedText['Language Code'] == langcode: 
-            originalText = manualTranslatedText['Original Text']
-            translatedText = manualTranslatedText['Translated Text']
-            findWordRegex = rf'(\b["\'()]?{originalText}[.,!?()]?["\']?\b)'
-            text = re.sub(findWordRegex, translatedText, text, flags=re.IGNORECASE)
-    return text
-
-
-with open(r'api\SSML_Customization\example.srt', 'r') as f:
-    text = f.readlines()
-
-print(utils.srt_to_dict(text, 0))
-
-#================================================================================================
-#                           Functions for translating text
-#================================================================================================
-
-def process_response_text(text, targetLanguage) -> Any:
-    """
-    This function processes the text returned from the API response
-
-    Parameters
-    ----------
-    text: str
-        The text to process
-    targetLanguage: str
-        The language code of the text. For example, if the text is in English, the langcode is 'en'
-
-    Returns
-    -------
-    str
-        The processed text
-    
-    """
-    text = html.unescape(text)
-    text = remove_notranslate_tags(text)
-    text = replace_manual_translations(text, targetLanguage)
-    return text
-
-# Translate the text entries of the dictionary
-def translate_dictionary(inputSubsDict, langDict, skipTranslation=False):
-    targetLanguage = langDict['targetLanguage']
-    translateService = langDict['translateService']
-    formality = langDict['formality']
-    
-    deepl_api = DEEPL_API()
-
-    # Create a container for all the text to be translated
+    # put them into dictionaries
+    dontTranslateList = txt_to_list(noTranslateOverrideFile)
+    manualTranslationsDict = csv_to_dict(manualTranslationOverrideFile)
+    urlList = txt_to_list(urlListFile)
     textToTranslate = []
 
-    for key in inputSubsDict:
-        originalText = inputSubsDict[key]['text']
+    deepl_api = DEEPL_API()
+
+    for key in subs_dict:
+        originalText = subs_dict[key]['text']
         # Add any 'notranslate' tags to the text
         processedText = add_notranslate_tags_from_notranslate_file(originalText, dontTranslateList)
         processedText = add_notranslate_tags_from_notranslate_file(processedText, urlList)
-        processedText = add_notranslate_tags_for_manual_translations(processedText, targetLanguage)
+        processedText = add_notranslate_tags_for_manual_translations(processedText, target_language)
 
         # Add the text to the list of text to be translated
         textToTranslate.append(processedText)
-   
-    # Calculate the total number of utf-8 codepoints
+    
     codepoints = 0
     for text in textToTranslate:
         codepoints += len(text.encode("utf-8"))
-    
-    if skipTranslation == False:
-        if translateService == 'deepl' and codepoints > 120000:
-            # If Google Translate is being used:
-            # Splits the list of text to be translated into smaller chunks of 100 texts.
-            # It does this by looping over the list in steps of 100, and slicing out each chunk from the original list. 
-            # Each chunk is appended to a new list, chunkedTexts, which then contains the text to be translated in chunks.
-            # The same thing is done for DeepL, but the chunk size is 400 instead of 100.
-            chunkSize = 100 if translateService == 'google' else 400
-            chunkedTexts = [textToTranslate[x:x+chunkSize] for x in range(0, len(textToTranslate), chunkSize)]
+        
+
+    if codepoints > 120000:
+        chunkSize = 400
+        chunkedTexts = [textToTranslate[x:x+chunkSize] for x in range(0, len(textToTranslate), chunkSize)]
+        
+        # Send and receive the batch requests
+        for j,chunk in enumerate(chunkedTexts):
             
-            # Send and receive the batch requests
-            for j,chunk in enumerate(chunkedTexts):
-                
-                if translateService == 'deepl':
-                    print(f'[DeepL] Translating text group {j+1} of {len(chunkedTexts)}')
-                    deepl_api = DEEPL_API()
-                    
-                    # Send the request
-                    result = deepl_api.translate_text(chunk, target_lang=targetLanguage, formality=formality, tag_handling='html')
-                    
-                    # Extract the translated texts from the response
-                    translatedTexts = [process_response_text(result[i].text, targetLanguage) for i in range(len(result))] # type: ignore
+            print(f'[DeepL] Translating text group {j+1} of {len(chunkedTexts)}')
+            
+            # Send the request
+            result = deepl_api.translate_text(chunk, target_lang=target_language, formality=formality, tag_handling='html')
+            
+            # Extract the translated texts from the response
+            translatedTexts = [process_response_text(result[i].text, target_language) for i in range(len(result))] # type: ignore
 
-                    # Add the translated texts to the dictionary
-                    for i in range(chunkSize):
-                        key = str((i+1+j*chunkSize))
-                        inputSubsDict[key]['translated_text'] = process_response_text(translatedTexts[i], targetLanguage)
-                        # Print progress, ovwerwrite the same line
-                        print(f' Translated with DeepL: {key} of {len(inputSubsDict)}', end='\r')
-                else:
-                    print("Error: Invalid translate_service setting. Only 'google' and 'deepl' are supported.")
-                
-        else:
-            if translateService == 'deepl':
-                print("Translating text using DeepL...")
-
-                # Send the request
-                result = deepl_api.translate_text(text=textToTranslate, target_lang=targetLanguage, formality=formality, tag_handling='html')
-
-                # Add the translated texts to the dictionary
-                for i, key in enumerate(inputSubsDict):
-                    inputSubsDict[key]['translated_text'] = process_response_text(result[i].text, targetLanguage) # type: ignore
-                    # Print progress, overwrite the same line
-                    print(f' Translated: {key} of {len(inputSubsDict)}', end='\r')
-            else:
-                print("Error: Invalid translate_service setting. Only 'deepl' is supported.")
-                
+            # Add the translated texts to the dictionary
+            for i in range(chunkSize):
+                key = str((i+1+j*chunkSize))
+                subs_dict[key]['translated_text'] = process_response_text(translatedTexts[i], target_language)
+                # Print progress, ovwerwrite the same line
+                print(f' Translated with DeepL: {key} of {len(subs_dict)}', end='\r')
     else:
-        for key in inputSubsDict:
-            inputSubsDict[key]['translated_text'] = process_response_text(inputSubsDict[key]['text'], targetLanguage) # Skips translating, such as for testing
-    print("                                                  ")
+        result = deepl_api.translate_text(text=textToTranslate, target_lang=target_language, formality=formality, tag_handling='html')
+        
+        # Add the translated texts to the dictionary
+        for i, key in enumerate(subs_dict):
+            subs_dict[key]['translated_text'] = process_response_text(result[i].text, target_language) # type: ignore
+    
+    # Combine subtitles if requested
+    if combine_subtitles:
+        subs_dict = combine_subtitles_advanced(subs_dict, combine_max_characters)
+
+    return subs_dict
 
 
-    # combinedProcessedDict = combine_subtitles_advanced(inputSubsDict, combineMaxChars)
 
-    # if skipTranslation == False or debugMode == True:
-    #     # Use video file name to use in the name of the translate srt file, also display regular language name
-    #     lang = langcodes.get(targetLanguage).display_name()
-    #     if debugMode:
-    #         if os.path.isfile(originalVideoFile):
-    #             translatedSrtFileName = pathlib.Path(originalVideoFile).stem + f" - {lang} - {targetLanguage}.DEBUG.txt"
-    #         else:
-    #             translatedSrtFileName = "debug" + f" - {lang} - {targetLanguage}.DEBUG.txt"
-    #     else:
-    #         translatedSrtFileName = pathlib.Path(originalVideoFile).stem + f" - {lang} - {targetLanguage}.srt"
-    #     # Set path to save translated srt file
-    #     translatedSrtFileName = os.path.join(outputFolder, translatedSrtFileName)
-    #     # Write new srt file with translated text
-    #     with open(translatedSrtFileName, 'w', encoding='utf-8-sig') as f:
-    #         for key in combinedProcessedDict:
-    #             f.write(str(key) + '\n')
-    #             f.write(combinedProcessedDict[key]['srt_timestamps_line'] + '\n')
-    #             f.write(combinedProcessedDict[key]['translated_text'] + '\n')
-    #             if debugMode:
-    #                 f.write(f"DEBUG: duration_ms = {combinedProcessedDict[key]['duration_ms']}" + '\n')
-    #                 f.write(f"DEBUG: char_rate = {combinedProcessedDict[key]['char_rate']}" + '\n')
-    #                 f.write(f"DEBUG: start_ms = {combinedProcessedDict[key]['start_ms']}" + '\n')
-    #                 f.write(f"DEBUG: end_ms = {combinedProcessedDict[key]['end_ms']}" + '\n')
-    #                 f.write(f"DEBUG: start_ms_buffered = {combinedProcessedDict[key]['start_ms_buffered']}" + '\n')
-    #                 f.write(f"DEBUG: end_ms_buffered = {combinedProcessedDict[key]['end_ms_buffered']}" + '\n')
-    #             f.write('\n')
+def write_srt_file(subs_dict, dst):
+    """Writes a subtitle dictionary to a subtitle file.
 
-    # return combinedProcessedDict
+    Parameters
+    ----------
+    subs_dict: dict
+        A dictionary containing subtitle information.
+    dst: str
+        The destination file path.
+
+    """
+    with open(dst, 'w', encoding='utf-8-sig') as f:
+        for key in subs_dict:
+            f.write(str(key) + '\n')
+            f.write(subs_dict[key]['srt_timestamps_line'] + '\n')
+            f.write(subs_dict[key]['translated_text'] + '\n\n')
+
+
+
 
 
