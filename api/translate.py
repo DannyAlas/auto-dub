@@ -29,6 +29,7 @@ def combine_subtitles_advanced(inputDict, maxCharacters=200):
     # Convert the list back to a dictionary then return it
     return dict(enumerate(entryList, start=1))
 
+
 def translate(subs_dict: dict, target_language: str, formality: str = "default", combine_subtitles: bool = True, combine_max_characters: int = 200):
     """Translates a subtitle dictionary into the target language.
 
@@ -108,7 +109,6 @@ def translate(subs_dict: dict, target_language: str, formality: str = "default",
     return subs_dict
 
 
-
 def write_srt_file(subs_dict, dst):
     """Writes a subtitle dictionary to a subtitle file.
 
@@ -125,8 +125,3 @@ def write_srt_file(subs_dict, dst):
             f.write(str(key) + '\n')
             f.write(subs_dict[key]['srt_timestamps_line'] + '\n')
             f.write(subs_dict[key]['translated_text'] + '\n\n')
-
-
-
-
-

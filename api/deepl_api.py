@@ -1,4 +1,4 @@
-from auth import DEEPL_AUTH
+from api_auth import DEEPL_AUTH
 from deepl.translator import TextResult
 from typing import List
 
