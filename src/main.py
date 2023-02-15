@@ -8,6 +8,9 @@ from typing import Iterator, List
 import pika
 import requests
 import whisper
+from torch.cuda import is_available as cuda_is_available
+
+DEVICE = "cuda" if cuda_is_available() else "cpu"
 
 lock = threading.Lock()
 message = {"status":"None"}
@@ -40,12 +43,18 @@ def write_srt(transcript: Iterator[dict]) -> List:
         count += 1
         srt.extend(
             [
-                f"{count}\n",
-                f"{srt_format_timestamp(segment['start'])} --> {srt_format_timestamp(segment['end'])}\n",
-                f"{segment['text'].replace('-->', '->').strip()}\n\n",
+                f"{count}",
+                f"{srt_format_timestamp(segment['start'])} --> {srt_format_timestamp(segment['end'])}",
+                f"{segment['text'].replace('-->', '->').strip()}",
             ]
         )
 
+    with open("output.srt", "w") as f:
+        for line in srt:
+            f.write(f"{line}")
+        from fire import upload_srt
+        import random
+        upload_srt(f, f"output{random.randint(1,1000)}.srt")
     return srt
 
 def detect_language(model, audio):
@@ -61,7 +70,7 @@ def detect_language(model, audio):
     audio = whisper.pad_or_trim(audio)
 
     # make log-Mel spectrogram and move to the same device as the model
-    mel = whisper.log_mel_spectrogram(audio).to("cpu")
+    mel = whisper.log_mel_spectrogram(audio).to(DEVICE)
 
     # detect the spoken language
     _, probs = model.detect_language(mel)
@@ -105,8 +114,11 @@ def do_work(connection, channel, delivery_tag, body):
             audio = f.name
         LOGGER.info("Audio file downloaded")
 
-        LOGGER.info("Loading model...")
-        model = whisper.load_model(body["model_size"])
+        if body["model_size"] == "large-v2":
+            LOGGER.info(f"Loading large model... Using device: {DEVICE}")
+            model = whisper.load_model("medium", device=DEVICE)
+        else:
+            model = whisper.load_model(body["model_size"], device=DEVICE)
         LOGGER.info("Model loaded")
 
         detected_language = None

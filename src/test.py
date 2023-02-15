@@ -55,7 +55,9 @@ def check_params(options: dict) -> dict:
                 "content-type"
             )
 
-            if not content_type == "audio/mp3":
+            if content_type == "audio/mp3" or "audio/mpeg":
+                pass
+            else:
                 response = {
                     "status": "error",
                     "message": f"Invalid audio file. Must be [audio/mp3] NOT [{content_type}]",

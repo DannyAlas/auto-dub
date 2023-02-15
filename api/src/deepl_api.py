@@ -1,6 +1,8 @@
+from typing import List
+
 from api_auth import DEEPL_AUTH
 from deepl.translator import TextResult
-from typing import List
+
 
 class DEEPL_API(DEEPL_AUTH):
     """The base class for the DeepL API
@@ -13,9 +15,15 @@ class DEEPL_API(DEEPL_AUTH):
 
     def __init__(self):
         super().__init__()
-    
-    def translate_text(self, text: list, target_lang: str, formality: str = "default", tag_handling: str = "html") -> TextResult | List[TextResult]:
-        """ Translates a list of strings to a target language 
+
+    def translate_text(
+        self,
+        text: list,
+        target_lang: str,
+        formality: str = "default",
+        tag_handling: str = "html",
+    ) -> TextResult | List[TextResult]:
+        """Translates a list of strings to a target language
 
         Parameters
         ----------
@@ -25,7 +33,7 @@ class DEEPL_API(DEEPL_AUTH):
             The target language to translate to
         tag_handling : str, optional
             The tag handling to use, by default "html"
-        
+
         Returns
         -------
         list
@@ -33,7 +41,10 @@ class DEEPL_API(DEEPL_AUTH):
         """
 
         response = self.deepl_auth_object.translate_text(
-            text, target_lang=target_lang, formality=formality, tag_handling=tag_handling
+            text,
+            target_lang=target_lang,
+            formality=formality,
+            tag_handling=tag_handling,
         )
 
         return response

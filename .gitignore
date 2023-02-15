@@ -1,8 +1,12 @@
 .env
 *.cfg
-
+*.srt
+#folders
+.vscode/
 testing/
+
 __pycache__/
 Scripts/
 Lib/
 Include/
+Share/
