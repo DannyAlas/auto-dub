@@ -4,6 +4,9 @@
 #folders
 .vscode/
 testing/
+*working*/
+temp/
+
 
 __pycache__/
 Scripts/

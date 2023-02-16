@@ -2,9 +2,9 @@ import csv
 import requests
 import re
 from msilib import type_string
+import pathlib
 
-
-def download_srt_file(url: str, filename: str) -> None:
+def download_srt_file(url: str, file_dest: str) -> pathlib.Path:
     """
     Downloads an srt file from a url and saves it to the filename
 
@@ -12,19 +12,23 @@ def download_srt_file(url: str, filename: str) -> None:
     ----------
     url : str
         url of the srt file
-    filename : str
-        filename to save the srt file to
+    file_dest : str
+        file destination to save the srt file to. Must include the filename
 
     Returns
     -------
-    None
+    file_path: pathlib.Path
+        path to the downloaded file
     """
     # Download the file from `url` and save it locally under `file_name`:
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
-        with open(filename, "wb") as f:
+        with open(file_dest, "wb") as f:
             for chunk in r.iter_content(chunk_size=16384):
                 f.write(chunk)
+    
+    return pathlib.Path(file_dest)
+
 
 
 def srt_to_dict(lines, addBufferMilliseconds) -> dict:

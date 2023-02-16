@@ -1,5 +1,6 @@
+from concurrent.futures import process
 from pathlib import Path
-from typing import Literal, Union
+from typing import Literal, Union, List
 from wsgiref.validate import validator
 
 import pandas as pd
@@ -280,7 +281,7 @@ MICROSOFT_LANGUAGES: dict = {
 }
 
 
-class Dubbing_Settings(BaseModel):
+class Main_Settings(BaseModel):
     """
     The main settings used by the dubbing program.
 
@@ -316,9 +317,6 @@ class Dubbing_Settings(BaseModel):
     add_line_buffer_milliseconds: int = 30
         Adds a silence buffer between each spoken clip, but keeps the speech "centered" at the right spot so it's still synced. See notes.
 
-    combine_lines: int = 200
-        The maximum number of characters that can be combined into a single line. This is useful for services like Azure which have a character limit per line. If the combination of two adjacent subtitle lines is below this amount and one starts at the same time the other ends, then they will be combined into a single line. This should improve the speech synthesis by reducing unnatural splits in spoken sentences.
-
     debug_mode: bool = False
         If true, will print out extra debug information and save the intermediate files to the output folder.
 
@@ -341,7 +339,6 @@ class Dubbing_Settings(BaseModel):
     force_stretch_with_twopass: bool = False
     azure_sentence_pause: Union[Literal["default"], int] = 80
     add_line_buffer_milliseconds: int = 0
-    combine_subtitles_max_chars: int = 200
     debug_mode: bool = False
 
     @validator("output_format")
@@ -374,18 +371,12 @@ class Dubbing_Settings(BaseModel):
         return v
 
 
-class Subtitle(BaseModel):
+class Dubbing_Settings(BaseModel):
     """
     A single subtitle instance to process
 
     Attributes
     ----------
-    
-    order_id: str
-        The order id of the request
-
-    dubbing_settings: Dubbing_Settings
-        The dubbing settings to use
 
     original_language: str
         The BCP-47 language code for the original text language
@@ -407,21 +398,26 @@ class Subtitle(BaseModel):
 
     translation_formality: str
         The formality of the translation. Supported formality = ["default", "more", "less"]
-
-    file: Path
-        The path to the subtitle file to process
+    
+    combine_subtitles: bool = True
+        Whether or not to combine adjacent subtitles into a single line. This is useful for services like Azure which have a character limit per line. If the combination of two adjacent subtitle lines is below the `combine_subtitles_max_chars` and one starts at the same time the other ends, then they will be combined into a single line. This should improve the speech synthesis by reducing unnatural splits in spoken sentences.
+    
+    combine_subtitles_max_chars: int = 200
+        The maximum number of characters that can be combined into a single line. This is useful for services like Azure which have a character limit per line. If the combination of two adjacent subtitle lines is below this amount and one starts at the same time the other ends, then they will be combined into a single line. This should improve the speech synthesis by reducing unnatural splits in spoken sentences.
 
     """
-    order_id: str = ""
-    dubbing_settings: Dubbing_Settings = Dubbing_Settings()
+    combine_subtitles: bool = True
+    combine_subtitles_max_chars: int = 200
+
     original_language: str = "en-US"
     formality_preference: str = "default"
     translation_target_language: str = "KO"
     synth_language_code: str = "es-MX"
     synth_voice_name: str = "es-MX-CecilioNeural"
     synth_voice_gender: str = "MALE"
-    file: Path = Path("")
 
+    subs_dict: dict = {}
+    
     @property
     def translation_target_language_codes(self) -> list:
         return list(DEEPL_TANSLATION_LANGUAGES.values())
@@ -433,12 +429,6 @@ class Subtitle(BaseModel):
     @property
     def microsoft_languages_voices(self) -> list:
         return [MICROSOFT_LANGUAGES[x]["voices"] for x in MICROSOFT_LANGUAGES]
-
-    @validator("dubbing_settings")
-    def dubbing_settings_must_be_valid(cls, v):
-        if not isinstance(v, Dubbing_Settings):
-            raise ValueError("dubbing_settings must be a valid Dubbing_Settings object")
-        return v
 
     @validator("original_language")
     def original_language_must_be_valid(cls, v):
@@ -468,33 +458,60 @@ class Subtitle(BaseModel):
             )
         return v
 
-    @validator("synth_voice_name")
-    def synth_voice_name_must_be_valid(cls, v):
-        if v not in [MICROSOFT_LANGUAGES[x]["voices"] for x in MICROSOFT_LANGUAGES]:
-            raise ValueError(
-                "synth_voice_name must be a valid voice name. See microsoft_languages_voices for a list of supported voices"
-            )
-        return v
+    # @validator("synth_voice_name")
+    # def synth_voice_name_must_be_valid(cls, v):
+    #     if v not in [MICROSOFT_LANGUAGES[x]["voices"] for x in MICROSOFT_LANGUAGES]:
+    #         raise ValueError(
+    #             "synth_voice_name must be a valid voice name. See microsoft_languages_voices for a list of supported voices"
+    #         )
+    #     return v
 
-    @validator("synth_language_code", "synth_voice_name")
-    def synth_language_code_and_synth_voice_name_must_match(cls, v, values):
-        if values["synth_language_code"] not in MICROSOFT_LANGUAGES[v]["languages"]:
-            raise ValueError("synth_language_code and synth_voice_name must match")
-        return v
+    # @validator("synth_language_code", "synth_voice_name")
+    # def synth_language_code_and_synth_voice_name_must_match(cls, v, values):
+    #     if values["synth_language_code"] not in MICROSOFT_LANGUAGES[v]["languages"]:
+    #         raise ValueError("synth_language_code and synth_voice_name must match")
+    #     return v
 
     @validator("synth_voice_name", "synth_voice_gender")
     def synth_language_code_and_synth_voice_gender_must_match(cls, v, values):
         # TODO: figure this out later
         return v
 
-    @validator("file")
-    def file_must_be_valid(cls, v):
-        # check if it is a path
-        if not isinstance(v, Path):
-            raise ValueError("file must be a valid path")
-        # check if it is a file
-        if not v.is_file():
-            raise ValueError("file must be a valid file")
+
+class Order(BaseModel):
+    """
+    A single subtitle instance to process
+
+    Attributes
+    ----------
+    
+    order_id: str
+        The order id of the request
+    settings: Dubbing_Settings
+        The dubbing settings to use
+    dubbing_instances: List[Subtitle]
+        A list of Subtitle objects to process
+    
+    """
+
+    order_id: str = ""
+    settings: Main_Settings = Main_Settings()
+    dubbing_instances: List[Dubbing_Settings]
+
+    @validator("settings")
+    def settings_must_be_valid(cls, v):
+        if not isinstance(v, Main_Settings):
+            raise ValueError("dubbing_settings must be a valid Dubbing_Settings object")
+        return v
+    
+    @validator("dubbing_instances")
+    def instances_must_be_valid(cls, v):
+        if not isinstance(v, list):
+            raise ValueError("instances must be a list of `Dubbing_Settings`")
+        for instance in v:
+            if not isinstance(instance, Dubbing_Settings):
+                raise ValueError("instances must of type `Dubbing_Settings`")
+        return v
 
 
 class Srt_Timestamp:

@@ -1,7 +1,8 @@
 from unicodedata import name
 from api_auth import USER_AUTH, ADMIN_AUTH
-
-
+from settings import Order
+import datetime
+import json
 class USER:
     def __init__(self, token):
         self.user_auth = USER_AUTH(token)
@@ -10,10 +11,56 @@ class USER:
         self.db = self.user_auth.user_db
         self.bucket = self.user_auth.user_store
 
+    def create_download_url(self, path, exp_time: datetime.timedelta=datetime.timedelta(minutes=15)):
+        """Creates download url for file in storage
+        
+        Parameters
+            path (str): 
+                path to file in storage
+        
+        Returns
+            str:
+                download url
+        """
+        # ensure the first part of the path is the user id
+        if path.split("/")[0] != self.user.uid:
+            raise Exception("Invalid path, must start with user id")
+        
+        return self.bucket.blob(path).generate_signed_url(
+            version="v4",
+            expiration=exp_time,
+            method="GET",
+        )
 
-    def set_order_info(self, order_id):
-        self.order_ref = self.db.collection("orders").document(order_id)
-        return self.order_ref.get().to_dict()
+    def initialize_db_order(self, order: Order):
+        """Initializes order in db and storage
+        
+        Parameters
+            order (Order): 
+                Order object
+        
+        Returns
+            dict:
+                order info
+        
+        Raises
+            Exception:
+                Error initializing order
+        """
+        try:
+            self.order_ref = self.db.collection("orders").document(order.order_id)
+        except:
+            raise Exception("Error initializing order")
+
+        try:
+            self.order_ref.set({
+                    f"dubbing_settings": json.loads(order.settings.json()),
+                    f"dubbing_instances": [json.loads(instance.json()) for instance in order.dubbing_instances],
+                }, merge=True)
+
+            return self.order_ref.get().to_dict()
+        except:
+            raise Exception("Error setting order settings")
     
     def upload_translated_srt(self, file, order_id, language):
         """Uploads translated srt file to storage and updates order in db
@@ -60,9 +107,4 @@ class USER:
         return self.order_ref.get().to_dict().get("translated_srts")
 
 
-"""
-auth user
-get order 
-check params - params dictate translation, transcriptiopn, etc
 
-"""
