@@ -3,6 +3,14 @@ import requests
 import re
 from msilib import type_string
 import pathlib
+import logging
+from sys import stdout
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s",
+    datefmt="%d/%b/%Y %H:%M:%S",
+    stream=stdout)
 
 def download_srt_file(url: str, file_dest: str) -> pathlib.Path:
     """
@@ -21,11 +29,15 @@ def download_srt_file(url: str, file_dest: str) -> pathlib.Path:
         path to the downloaded file
     """
     # Download the file from `url` and save it locally under `file_name`:
+    logging.debug(f"DOWNLOADING SRT FILE FROM URL: {url}")
     with requests.get(url, stream=True) as r:
+        logging.debug(f"STATUS CODE: {r.status_code}")
         r.raise_for_status()
         with open(file_dest, "wb") as f:
+            logging.debug(f"WRITING CHUNK TO FILE: {file_dest}")
             for chunk in r.iter_content(chunk_size=16384):
                 f.write(chunk)
+            logging.debug(f"FILE WRITTEN: {file_dest}")
     
     return pathlib.Path(file_dest)
 
@@ -85,6 +97,7 @@ def srt_to_dict(lines, addBufferMilliseconds) -> dict:
     # The next line uses the syntax HH:MM:SS,MMM --> HH:MM:SS,MMM . Get the difference between the two times and put that in the dictionary
     # For the line after that, put the text in the dictionary
     for lineNum, line in enumerate(lines):
+        logging.debug(f"LINE: {line}")
         
         line = line.strip()
         if line.isdigit() and subtitleTimeLineRegex.match(lines[lineNum + 1]):
@@ -100,7 +113,7 @@ def srt_to_dict(lines, addBufferMilliseconds) -> dict:
                     count += 1
                 else:
                     break
-
+            logging.debug(f"SUBTITLE TEXT MERGED")
             # Create empty dictionary with keys for start and end times and subtitle text
             subsDict[line] = {
                 "start_ms": "",
@@ -129,7 +142,9 @@ def srt_to_dict(lines, addBufferMilliseconds) -> dict:
                 + int(time2[2].split(",")[1])
             )  # / 1000 #Uncomment to turn into seconds
             timeDifferenceMs = str(processedTime2 - processedTime1)
-
+            
+            logging.debug(f"TIME DIFFERENCE CALCULATED")
+            
             # Adjust times with buffer
             if addBufferMilliseconds > 0:
                 subsDict[line]["start_ms_buffered"] = str(
@@ -169,6 +184,8 @@ def srt_to_dict(lines, addBufferMilliseconds) -> dict:
             subsDict[key]["start_ms"] = value["start_ms_buffered"]
             subsDict[key]["end_ms"] = value["end_ms_buffered"]
             subsDict[key]["duration_ms"] = value["duration_ms_buffered"]
+
+    logging.debug(f"SUBTITLES DICTIONARY CREATED")
 
     return subsDict
 
