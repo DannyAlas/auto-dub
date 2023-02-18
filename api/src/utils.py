@@ -1,16 +1,19 @@
 import csv
-import requests
+import logging
+import pathlib
 import re
 from msilib import type_string
-import pathlib
-import logging
 from sys import stdout
+
+import requests
 
 logging.basicConfig(
     level=logging.DEBUG,
     format="[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s",
     datefmt="%d/%b/%Y %H:%M:%S",
-    stream=stdout)
+    stream=stdout,
+)
+
 
 def download_srt_file(url: str, file_dest: str) -> pathlib.Path:
     """
@@ -38,9 +41,8 @@ def download_srt_file(url: str, file_dest: str) -> pathlib.Path:
             for chunk in r.iter_content(chunk_size=16384):
                 f.write(chunk)
             logging.debug(f"FILE WRITTEN: {file_dest}")
-    
-    return pathlib.Path(file_dest)
 
+    return pathlib.Path(file_dest)
 
 
 def srt_to_dict(lines, addBufferMilliseconds) -> dict:
@@ -96,8 +98,8 @@ def srt_to_dict(lines, addBufferMilliseconds) -> dict:
     # The dictionary contains the start, ending, and duration of the subtitles as well as the text
     # The next line uses the syntax HH:MM:SS,MMM --> HH:MM:SS,MMM . Get the difference between the two times and put that in the dictionary
     # For the line after that, put the text in the dictionary
+    logging.debug(f"ENUMERATING LINES")
     for lineNum, line in enumerate(lines):
-        logging.debug(f"LINE: {line}")
         
         line = line.strip()
         if line.isdigit() and subtitleTimeLineRegex.match(lines[lineNum + 1]):
@@ -142,9 +144,9 @@ def srt_to_dict(lines, addBufferMilliseconds) -> dict:
                 + int(time2[2].split(",")[1])
             )  # / 1000 #Uncomment to turn into seconds
             timeDifferenceMs = str(processedTime2 - processedTime1)
-            
+
             logging.debug(f"TIME DIFFERENCE CALCULATED")
-            
+
             # Adjust times with buffer
             if addBufferMilliseconds > 0:
                 subsDict[line]["start_ms_buffered"] = str(
@@ -176,7 +178,6 @@ def srt_to_dict(lines, addBufferMilliseconds) -> dict:
                 )
             else:
                 subsDict[line]["break_until_next"] = 0
-            
 
     # Apply the buffer to the start and end times by setting copying over the buffer values to main values
     for key, value in subsDict.items():
@@ -188,6 +189,7 @@ def srt_to_dict(lines, addBufferMilliseconds) -> dict:
     logging.debug(f"SUBTITLES DICTIONARY CREATED")
 
     return subsDict
+
 
 def tanslated_srt_to_file(subs_dict, dst):
     """Writes a translated subtitle dictionary to a subtitle file.

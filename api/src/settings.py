@@ -1,6 +1,6 @@
 from concurrent.futures import process
 from pathlib import Path
-from typing import Literal, Union, List
+from typing import List, Literal, Union
 from wsgiref.validate import validator
 
 import pandas as pd
@@ -380,7 +380,7 @@ class Dubbing_Settings(BaseModel):
 
     original_language: str
         The BCP-47 language code for the original text language
-    
+
     formality_preference: { "default", "more", "less" } = "default"
         applies to DeepL translations only - Whether to have it use more or less formal language.
 
@@ -398,14 +398,15 @@ class Dubbing_Settings(BaseModel):
 
     translation_formality: str
         The formality of the translation. Supported formality = ["default", "more", "less"]
-    
+
     combine_subtitles: bool = True
         Whether or not to combine adjacent subtitles into a single line. This is useful for services like Azure which have a character limit per line. If the combination of two adjacent subtitle lines is below the `combine_subtitles_max_chars` and one starts at the same time the other ends, then they will be combined into a single line. This should improve the speech synthesis by reducing unnatural splits in spoken sentences.
-    
+
     combine_subtitles_max_chars: int = 200
         The maximum number of characters that can be combined into a single line. This is useful for services like Azure which have a character limit per line. If the combination of two adjacent subtitle lines is below this amount and one starts at the same time the other ends, then they will be combined into a single line. This should improve the speech synthesis by reducing unnatural splits in spoken sentences.
 
     """
+
     combine_subtitles: bool = True
     combine_subtitles_max_chars: int = 200
 
@@ -417,7 +418,7 @@ class Dubbing_Settings(BaseModel):
     synth_voice_gender: str = "MALE"
 
     subs_dict: dict = {}
-    
+
     @property
     def translation_target_language_codes(self) -> list:
         return list(DEEPL_TANSLATION_LANGUAGES.values())
@@ -484,14 +485,14 @@ class Order(BaseModel):
 
     Attributes
     ----------
-    
+
     order_id: str
         The order id of the request
     settings: Dubbing_Settings
         The dubbing settings to use
     dubbing_instances: List[Subtitle]
         A list of Subtitle objects to process
-    
+
     """
 
     order_id: str = ""
@@ -503,7 +504,7 @@ class Order(BaseModel):
         if not isinstance(v, Main_Settings):
             raise ValueError("dubbing_settings must be a valid Dubbing_Settings object")
         return v
-    
+
     @validator("dubbing_instances")
     def instances_must_be_valid(cls, v):
         if not isinstance(v, list):

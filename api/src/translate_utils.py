@@ -4,7 +4,8 @@ import os
 import re
 from operator import itemgetter
 from typing import Any
-from utils import txt_to_list, csv_to_dict
+
+from utils import csv_to_dict, txt_to_list
 
 # Import files from SSML_Customization folder
 noTranslateOverrideFile = os.path.abspath(

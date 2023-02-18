@@ -1,18 +1,20 @@
+import logging
 import os
+from sys import stdout
 
 from deepl_api import DEEPL_API
 from translate_utils import (add_notranslate_tags_for_manual_translations,
-                              add_notranslate_tags_from_notranslate_file,
-                              combine_single_pass, process_response_text)
+                             add_notranslate_tags_from_notranslate_file,
+                             combine_single_pass, process_response_text)
 from utils import csv_to_dict, txt_to_list
-import logging
-from sys import stdout
 
 logging.basicConfig(
     level=logging.DEBUG,
     format="[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s",
     datefmt="%d/%b/%Y %H:%M:%S",
-    stream=stdout)
+    stream=stdout,
+)
+
 
 def combine_subtitles_advanced(inputDict, maxCharacters=200):
     """Combines subtitle lines that are close together and have a similar speaking rate. Useful when sentences are split into multiple subtitle lines. Voice synthesis will have fewer unnatural pauses.
@@ -24,8 +26,10 @@ def combine_subtitles_advanced(inputDict, maxCharacters=200):
     noMorePossibleCombines = False
     # Convert dictionary to list of dictionaries of the values
     entryList = []
-    
-    logging.debug(f"CONVERTING DICT TO LIST - charRateGoal: {charRateGoal}, gapThreshold: {gapThreshold}, maxCharacters: {maxCharacters}")
+
+    logging.debug(
+        f"CONVERTING DICT TO LIST - charRateGoal: {charRateGoal}, gapThreshold: {gapThreshold}, maxCharacters: {maxCharacters}"
+    )
 
     for key, value in inputDict.items():
         value["originalIndex"] = int(key) - 1
@@ -61,14 +65,16 @@ def translate(
         Whether to combine subtitles that are close together and have a similar speaking rate. Useful when sentences are split into multiple subtitle lines. Voice synthesis will have fewer unnatural pauses.
     combine_max_characters: int default=200
         The maximum number of characters to combine subtitles into if combine_subtitles is true.
-    
+
     Returns
     -------
     dict
         A dictionary containing the translated subtitle information.
 
     """
-    logging.debug(f"TRANSLATING - target_language: {target_language}, formality: {formality}, combine_subtitles: {combine_subtitles}, combine_max_characters: {combine_max_characters}")
+    logging.debug(
+        f"TRANSLATING - target_language: {target_language}, formality: {formality}, combine_subtitles: {combine_subtitles}, combine_max_characters: {combine_max_characters}"
+    )
 
     noTranslateOverrideFile = os.path.abspath(
         "SSML_Customization/dont_translate_phrases.txt"
@@ -118,7 +124,9 @@ def translate(
         # Send and receive the batch requests
         for j, chunk in enumerate(chunkedTexts):
 
-            logging.debug(f"[DeepL] Translating text group {j+1} of {len(chunkedTexts)}")
+            logging.debug(
+                f"[DeepL] Translating text group {j+1} of {len(chunkedTexts)}"
+            )
 
             # Send the request
             result = deepl_api.translate_text(
@@ -140,18 +148,18 @@ def translate(
                 # Print progress, ovwerwrite the same line
                 logging.debug(f" Translated with DeepL: {key} of {len(subs_dict)}")
     else:
-        
+
         logging.debug("Sending request to DeepL")
-        
+
         result = deepl_api.translate_text(
             text=textToTranslate,
             target_lang=target_language,
             formality=formality,
             tag_handling="html",
         )
-        
+
         logging.debug("Received response from DeepL")
-        
+
         # Add the translated texts to the dictionary
         for i, key in enumerate(subs_dict):
             subs_dict[key]["translated_text"] = process_response_text(result[i].text, target_language)  # type: ignore

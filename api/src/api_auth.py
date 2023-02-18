@@ -103,7 +103,7 @@ class USER_AUTH:
     def __init__(self, token):
         # verify token
         self.user = self.get_user_from_token(token)
-        self.uid = self.user.uid # type: ignore
+        self.uid = self.user.uid  # type: ignore
 
         # initialize admin auth
         self._admin_auth = ADMIN_AUTH()
