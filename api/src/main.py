@@ -189,20 +189,6 @@ def del_temp_files(id: str):
 
 
 
-
-# @app.post("/test/dubs/")
-# def test_dubs(request: Request, data: Order):
-#     user = authorize(request)
-#     user.initialize_db_order(order=data)
-#     with open(r"C:\dev\projects\test-app\api\src\workingFolder\0001.mp3", "r") as f:
-#         file = f.buffer.read()
-#         file_name = f.name.split("/")[-1]
-#         user.upload_translated_audio(data=file, order_id="Jyh9aWxS4o87ZtpMRoy3", language="ES", file_name=file_name)
-#     return {"message": "ok"}
-
-
-
-
 #----------------------#
 #      ENDPOINTS       #
 #----------------------#

@@ -459,20 +459,6 @@ class Dubbing_Settings(BaseModel):
             )
         return v
 
-    # @validator("synth_voice_name")
-    # def synth_voice_name_must_be_valid(cls, v):
-    #     if v not in [MICROSOFT_LANGUAGES[x]["voices"] for x in MICROSOFT_LANGUAGES]:
-    #         raise ValueError(
-    #             "synth_voice_name must be a valid voice name. See microsoft_languages_voices for a list of supported voices"
-    #         )
-    #     return v
-
-    # @validator("synth_language_code", "synth_voice_name")
-    # def synth_language_code_and_synth_voice_name_must_match(cls, v, values):
-    #     if values["synth_language_code"] not in MICROSOFT_LANGUAGES[v]["languages"]:
-    #         raise ValueError("synth_language_code and synth_voice_name must match")
-    #     return v
-
     @validator("synth_voice_name", "synth_voice_gender")
     def synth_language_code_and_synth_voice_gender_must_match(cls, v, values):
         # TODO: figure this out later
