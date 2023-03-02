@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from settings import Dubbing_Settings, Order
 from translate import translate
+from typing import Literal
 from user import USER
 from utils import download_srt_file, srt_to_dict, tanslated_srt_to_file
 from voice_synth import synthesize_text_azure_batch
@@ -33,10 +34,29 @@ app = FastAPI()
 #    BUISNESS LOGIC    #
 # ----------------------#
 def authorize(request: Request) -> USER:
+    """Authorizes user
+    
+    Parameters
+    ----------
+    request (Request):
+        Request object
+    
+    Returns
+    -------
+    USER:
+        User object
+    
+    Raises
+    ------
+    AuthenticationError:
+        Error authorizing user
+    AssertionError:
+        No Authorization Header
+    """
     logging.debug("AUTHORIZING")
     auth_headers = request.headers.get("authorization")
     logging.debug(f"AUTH HEADERS: {auth_headers}")
-    assert auth_headers != None, "AUTHORIZATION ERROR: No Authorization Header"
+    assert auth_headers != None, "No Authorization Header"
 
     try:
         logging.debug("CREATING USER")
@@ -278,12 +298,24 @@ async def add_process_time_header(request, call_next):
 
 
 @app.get("/test/")
-def test(request: Request):
+def test(request: Request) -> Literal['pong']:
     # print(request.client)
     print("Hello")
     time.sleep(5)
     print("bye")
     return "pong"
+
+@app.get("/verify-request/translate")
+def verify_request(request: Request, data: Order) -> dict[str, str] | None:
+    try:
+        user = authorize(request)
+    except AuthenticationError as e:
+        return {"Authentication Error": str(e)}
+    return {"message": "success"}
+
+
+
+
 
 """
 TODO: FIX BATCH TWO PASS
